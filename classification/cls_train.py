@@ -90,8 +90,8 @@ def evaluate_val_loss_and_pr_auc(
     device: torch.device,
     bank: UnifiedMemoryBank,
     w_view: float,
-    lambda_cmcl: float,
-    tau_cmcl: float,
+    lambda_sup: float,
+    tau_sup: float,
     tau_gate: float,
     warmup_done: bool,
 ) -> Tuple[float, float]:
@@ -114,31 +114,31 @@ def evaluate_val_loss_and_pr_auc(
         loss_ceV = ce(out["logitL"], y) + ce(out["logitT"], y)
 
         if not warmup_done:
-            loss_cmcl = torch.zeros((), device=device)
+            loss_sup = torch.zeros((), device=device)
         else:
-            loss_cmcl_L = supcon_eq2_single_view_with_bank(
+            loss_sup_L = supcon_eq2_single_view_with_bank(
                 out["zL"],
                 y,
                 bank.mL,
                 bank.y,
-                tau=tau_cmcl,
+                tau=tau_sup,
                 use_bank_neg=True,
                 use_batch_neg=True,
                 mask_bank_same_label=True,
             )
-            loss_cmcl_T = supcon_eq2_single_view_with_bank(
+            loss_sup_T = supcon_eq2_single_view_with_bank(
                 out["zT"],
                 y,
                 bank.mT,
                 bank.y,
-                tau=tau_cmcl,
+                tau=tau_sup,
                 use_bank_neg=True,
                 use_batch_neg=True,
                 mask_bank_same_label=True,
             )
-            loss_cmcl = 0.5 * (loss_cmcl_L + loss_cmcl_T)
+            loss_sup = 0.5 * (loss_sup_L + loss_sup_T)
 
-        loss = loss_ceF + w_view * loss_ceV + lambda_cmcl * loss_cmcl
+        loss = loss_ceF + w_view * loss_ceV + lambda_sup * loss_sup
 
         bs = int(y.shape[0])
         total_loss += float(loss.item()) * bs
@@ -167,8 +167,8 @@ def train_one_epoch(
     scaler: Optional[torch.amp.GradScaler],
     epoch: int,
     w_view: float,
-    lambda_cmcl: float,
-    tau_cmcl: float,
+    lambda_sup: float,
+    tau_sup: float,
     tau_gate: float,
     bank_alpha: float,
     warmup_epochs: int,
@@ -197,31 +197,31 @@ def train_one_epoch(
             loss_ceV = ce(out["logitL"], y) + ce(out["logitT"], y)
 
             if epoch < warmup_epochs:
-                loss_cmcl = torch.zeros((), device=device)
+                loss_sup = torch.zeros((), device=device)
             else:
-                loss_cmcl_L = supcon_eq2_single_view_with_bank(
+                loss_sup_L = supcon_eq2_single_view_with_bank(
                     out["zL"],
                     y,
                     bank.mL,
                     bank.y,
-                    tau=tau_cmcl,
+                    tau=tau_sup,
                     use_bank_neg=True,
                     use_batch_neg=True,
                     mask_bank_same_label=True,
                 )
-                loss_cmcl_T = supcon_eq2_single_view_with_bank(
+                loss_sup_T = supcon_eq2_single_view_with_bank(
                     out["zT"],
                     y,
                     bank.mT,
                     bank.y,
-                    tau=tau_cmcl,
+                    tau=tau_sup,
                     use_bank_neg=True,
                     use_batch_neg=True,
                     mask_bank_same_label=True,
                 )
-                loss_cmcl = 0.5 * (loss_cmcl_L + loss_cmcl_T)
+                loss_sup = 0.5 * (loss_sup_L + loss_sup_T)
 
-            loss = loss_ceF + w_view * loss_ceV + lambda_cmcl * loss_cmcl
+            loss = loss_ceF + w_view * loss_ceV + lambda_sup * loss_sup
 
         if torch.isnan(loss) or torch.isinf(loss):
             continue
@@ -348,8 +348,8 @@ def run_fold(
             scaler,
             epoch=epoch,
             w_view=args.w_view,
-            lambda_cmcl=args.lambda_cmcl,
-            tau_cmcl=args.tau_cmcl,
+            lambda_sup=args.lambda_sup,
+            tau_sup=args.tau_sup,
             tau_gate=args.tau_gate,
             bank_alpha=args.bank_alpha,
             warmup_epochs=args.warmup_epochs,
@@ -363,8 +363,8 @@ def run_fold(
             device,
             bank,
             w_view=args.w_view,
-            lambda_cmcl=args.lambda_cmcl,
-            tau_cmcl=args.tau_cmcl,
+            lambda_sup=args.lambda_sup,
+            tau_sup=args.tau_sup,
             tau_gate=args.tau_gate,
             warmup_done=warmup_done,
         )
@@ -506,8 +506,8 @@ def build_parser():
     ap.add_argument("--moe_hidden", type=int, default=256)
 
     ap.add_argument("--w_view", type=float, default=0.5)
-    ap.add_argument("--lambda_cmcl", type=float, default=0.2)
-    ap.add_argument("--tau_cmcl", type=float, default=0.07)
+    ap.add_argument("--lambda_sup", type=float, default=0.2)
+    ap.add_argument("--tau_sup", type=float, default=0.07)
     ap.add_argument("--tau_gate", type=float, default=0.05)
     ap.add_argument("--bank_alpha", type=float, default=0.05)
     ap.add_argument("--warmup_epochs", type=int, default=1)
