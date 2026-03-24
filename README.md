@@ -1,19 +1,38 @@
-# CSV-2026 
+# CSV-2026 Challenge
 
-This repository is organized around three core training code:
+[![CSV 2026 Challenge Site](https://img.shields.io/badge/Official-CSV%202026%20Challenge-red?style=for-the-badge)](http://www.csv-isbi.net/)
 
-- classification pretraining
+Training code for the CSV-2026 challenge, including:
+
+- classification view pretraining
+- offline crop generation for classification
 - classification training
 - segmentation training
 
+## Overview
 
-## Directory Layout
+This repository is organized into two major components:
+
+- `classification/`: view pretraining, offline crop generation, and classification model training
+- `segmentation/`: segmentation model training
+
+The classification pipeline follows three stages:
+
+1. view pretraining
+2. offline crop generation
+3. classification training
+
+## Repository Structure
 
 ```text
 CSV2026_Challenge/
 ├── classification/
+│   ├── cls_dataset.py
+│   ├── cls_models.py
 │   ├── cls_pretrain.py
-│   └── cls_train.py
+│   ├── cls_train.py
+│   ├── cls_utils.py
+│   └── offline_crop.py
 ├── segmentation/
 │   └── seg_train.py
 ├── requirements.txt
@@ -21,71 +40,141 @@ CSV2026_Challenge/
 └── README.md
 ```
 
+## Installation
 
-## Training
-
-### View pretraining
 ```bash
-python classification/pretrain_view.py \
+pip install -r requirements.txt
+```
+
+## Classification Pipeline
+
+### 1. View Pretraining
+
+Pretrain a ResNet-based model to classify longitudinal and transverse views using a 3-channel input: ultrasound image + plaque mask + vessel mask.
+
+Code:
+
+`classification/cls_pretrain.py`
+
+Run:
+
+```bash
+python classification/cls_pretrain.py pretrain_view \
   --images_dir data/images \
   --pseudo_dir data/pseudo \
   --out_dir runs/view_pretrain_resnet \
-  --id_min 200 --id_max 999 \
-  --epochs 80 --batch_size 8 --num_workers 4 \
-  --imagenet_pretrained --amp
+  --imagenet_pretrained \
+  --amp
 ```
 
-### 2. Classification Training
+Expected input:
+
+- `images_dir/{case_id}.h5`
+- `long_img`
+- `trans_img`
+- `pseudo_dir/{case_id}_pseudo.h5`
+- `long_mask`
+- `trans_mask`
+
+Expected output:
+
+- pretrained checkpoint such as `view_best.pth`
+- training curves
+- split file
+- training history
+
+### 2. Offline Crop Generation
+
+Build offline cropped samples for classification training and save the corresponding manifest and group mapping for leakage-safe cross-validation.
+
+Code:
+
+`classification/offline_crop.py`
+
+Run:
+
+```bash
+python classification/offline_crop.py \
+  --splits_json data/splits42.json \
+  --images_dir data/train/images \
+  --labels_dir data/train/labels \
+  --out_root data/offline_crops012
+```
+
+Expected input:
+
+- `images_dir/{case_id}.h5`
+- `long_img`
+- `trans_img`
+- `labels_dir/{case_id}_label.h5`
+- `long_mask`
+- `trans_mask`
+- `cls`
+- `splits_json`
+- `train`
+- `val`
+
+Expected output:
+
+```text
+data/offline_crops012/
+├── images/
+├── labels/
+├── manifest.json
+├── groups.json
+└── global_summary.json
+```
+
+Important:
+
+- `manifest.json` stores sample-level records such as `new_id`, `source_id`, `cls`, `is_copy`, and `aug_idx`
+- `groups.json` stores the mapping from `source_id` to generated sample IDs
+- cropped samples must be split by `source_id` rather than by `new_id`
+
+### 3. Classification Training
+
+Train the final dual-view classification model on offline crops with supervised contrastive learning, memory bank updates, and weighted class centers.
+
+Code:
 
 `classification/cls_train.py`
 
-Trains the classification model on offline crops with supervised contrastive learning and center weighting.
+Run:
 
 ```bash
-python classification/resnet_offlinetrain_supconB_center_weighted_v2.py \
+python classification/cls_train.py \
   --manifest_json data/offline_crops012/manifest.json \
   --tv_images_dir data/offline_crops012/images \
   --tv_labels_dir data/offline_crops012/labels \
   --test_splits_json data/splits42.json \
   --test_images_dir data/test/images \
   --test_labels_dir data/test/labels \
-  --out_dir runs/resnet_supconB_center_weighted \
+  --out_dir runs/cls_train \
   --pretrain_ckpt runs/view_pretrain_resnet/view_best.pth \
-  --epochs 50 \
-  --batch_size 8 \
-  --num_workers 4 \
+  --center_weighted \
   --amp
 ```
 
-### 3. Segmentation Training
+Training and validation input:
 
-`segmentation/seg_train.py`
+- `manifest_json`
+- `tv_images_dir/{new_id}.h5`
+- `tv_labels_dir/{new_id}_label.h5`
 
-Trains a 2D UNet-style segmentation model based on an nnU-Net plan file.
+Test input:
 
-```bash
-python segmentation/train_unet2d_h5_by_nnunet_plan.py \
-  --h5_dir data/seg_h5 \
-  --plans_json data/nnunet_plans.json \
-  --config 2d \
-  --out_dir runs/unet2d_plan \
-  --epochs 200 \
-  --batch_size 16
-```
+- `test_splits_json`
+- `test`
+- `test_images_dir/{case_id}.h5`
+- `test_labels_dir/{case_id}_label.h5`
 
-## Environment
+## Segmentation Training
 
-Recommended:
+Train the segmentation model using the script below.
 
-- Python 3.10
-- PyTorch 2.x
-- CUDA-capable GPU for training
-
-Install dependencies with:
-
-```bash
-pip install -r requirements.txt
-```
 
 ## Notes
 
+- Classification pretraining, offline crop generation, and classification training are designed to be used as a pipeline.
+- Offline cropped samples must be split by `source_id` to avoid leakage.
+- Update all paths according to your local environment before running the scripts.
