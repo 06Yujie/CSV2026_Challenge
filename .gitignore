@@ -1,0 +1,51 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Lint / type / test cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.coverage
+.coverage.*
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# TensorBoard / experiment outputs
+runs/
+outputs/
+results/
+
+# Model weights
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+
+# Local datasets
+data/
+datasets/
+
+# Local environment files
+.env
+.env.*
+*.local
