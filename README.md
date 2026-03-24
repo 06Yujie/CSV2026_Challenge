@@ -5,7 +5,8 @@
 [![CUDA](https://img.shields.io/badge/CUDA-11.8+-green?style=for-the-badge&logo=nvidia)](https://developer.nvidia.com/cuda-toolkit)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](./LICENSE)
 
-Training code for the CSV-2026 challenge, including:
+For official rules, visit the [CSV 2026 challenge page](http://www.csv-isbi.net/)
+Our training code for the CSV 2026 challenge, including:
 
 - classification view pretraining
 - offline crop generation for classification
