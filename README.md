@@ -6,6 +6,7 @@
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](./LICENSE)
 
 For official rules, visit the [CSV 2026 challenge page](http://119.29.231.17/index.html)
+
 Our training code for the CSV 2026 challenge, including:
 
 - classification view pretraining
